@@ -15,10 +15,10 @@ const userSchema = new Schema(
         "Please provide a valid email address",
       ],
     },
-    role:{
-      type:String,
-      enum:["admin","user"],
-      required:true
+    role: {
+      type: String,
+      enum: ["admin", "user", "member"],
+      required: true
     },
     fullName: {
       type: String,
@@ -36,21 +36,47 @@ const userSchema = new Schema(
     },
     gender: {
       type: String,
-      enum: ["Male", "Female"],
+      enum: ["Male", "Female", "Others"],
       default: "Male",
     },
-    verified:{
-      type:Boolean,
-      default:false
+    verified: {
+      type: Boolean,
+      default: false
     },
     avatar: {
       type: String, // Cloudinary URL
       trim: true,
     },
+    country: {
+      type: String,
+      default: 'India'
+    },
+    state: {
+      type: String,
+    },
+    city: {
+      type: String,
+    },
     password: {
       type: String,
       required: [true, "Password is required"],
       minlength: [8, "Password must be at least 8 characters long"],
+    },
+    clubs: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Club",
+      },
+    ],
+    chapters: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Chapter",
+      },
+    ],
+    country:{
+      type:String,
+      default:'India'
     },
     refreshToken: {
       type: String,

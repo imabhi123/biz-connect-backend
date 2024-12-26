@@ -4,20 +4,21 @@ import path from "path";
 // Set storage engine
 const storage = multer.diskStorage({
     destination: (req, file, cb) => {
-        cb(null, "uploads/videos"); // Directory to store videos
+        cb(null, "uploads/media"); // Directory to store media files
     },
     filename: (req, file, cb) => {
         cb(null, `${Date.now()}-${file.originalname}`);
     },
 });
 
-// File filter to accept only video files
+// File filter to accept both image and video files
 const fileFilter = (req, file, cb) => {
     const ext = path.extname(file.originalname).toLowerCase();
-    if (ext === ".mp4" || ext === ".avi" || ext === ".mov" || ext === ".mkv") {
+    const allowedExtensions = [".mp4", ".avi", ".mov", ".mkv", ".jpg", ".jpeg", ".png", ".gif"];
+    if (allowedExtensions.includes(ext)) {
         cb(null, true);
     } else {
-        cb(new Error("Only video files are allowed"), false);
+        cb(new Error("Only image and video files are allowed"), false);
     }
 };
 

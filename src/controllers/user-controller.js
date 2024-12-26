@@ -4,6 +4,7 @@ import { User } from "../models/userModel.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import jwt from "jsonwebtoken";
 import admin from "firebase-admin";
+import { uploadOnCloudinary } from "../utils/cloudinary.js";
 
 const generateAccessAndRefreshTokens = async (userId) => {
   try {
@@ -14,7 +15,7 @@ const generateAccessAndRefreshTokens = async (userId) => {
     await user.save({ validateBeforeSave: false });
     return { accessToken, refreshToken };
   } catch (error) {
-    throw new ApiError( 
+    throw new ApiError(
       500,
       "Something went wrong while generating refresh and access token"
     );
@@ -36,17 +37,17 @@ async function sendOtp(phoneNumber) {
   }
 }
 
-const verifyOtp=async(otp,email,mobile)=>{
+const verifyOtp = async (otp, email, mobile) => {
 
 }
 
 const registerUser = asyncHandler(async (req, res) => {
-  const { email, fullName, mobile, gender, role } = req.body;
+  const { email, fullName, mobile, gender, role, password, country } = req.body;
   console.log(req.body);
 
   // Validate required fields
   if (
-    [email,fullName,mobile].some((field) => field?.trim() === "")
+    [email, fullName, mobile, gender, role, password, country].some((field) => field?.trim() === "")
   ) {
     throw new ApiError(400, "Please provide all required fields");
   }
@@ -60,10 +61,13 @@ const registerUser = asyncHandler(async (req, res) => {
   }
   // Create new user
   const user = await User.create({
-    firstName,
-    lastName,
+    fullName,
     email: email.toLowerCase(),
     password,
+    mobile,
+    gender,
+    country,
+    role
   });
 
   console.log(user, "--->abhishek");
@@ -144,7 +148,6 @@ const googleRegisterUser = asyncHandler(async (req, res) => {
     );
 });
 
-
 const loginUser = asyncHandler(async (req, res) => {
   const { email, password } = req.body;
 
@@ -208,7 +211,7 @@ const googleLoginUser = asyncHandler(async (req, res) => {
 
   // Check if the user already exists
   let user = await User.findOne({ email });
-  console.log(user,'-->',uid);
+  console.log(user, '-->', uid);
   if (!user) {
     // Create a new user if none exists
     user = await User.create({
@@ -242,7 +245,6 @@ const googleLoginUser = asyncHandler(async (req, res) => {
     accessToken: accessToken,
   });
 });
-
 
 const logoutUser = asyncHandler(async (req, res) => {
   console.log(req.user._id, "abhishek");
@@ -365,7 +367,6 @@ const purchasePlan = async (req, res) => {
   }
 };
 
-
 const getCurrentUser = asyncHandler(async (req, res) => {
   const user = await User.findById(req.user._id).select(
     "-password -refreshToken"
@@ -398,29 +399,118 @@ const updateAccountDetails = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, user, "Account details updated successfully"));
 });
 
-const updateUserprofilePicture = asyncHandler(async (req, res) => {
-  const avatarLocalPath = req.file?.path;
-
-  if (!avatarLocalPath) {
-    throw new ApiError(400, "Avatar file is missing");
+const updateUserprofilePicture = async (req, res) => {
+  const { userId, avatar } = req.body; // Extract userId and avatar from request body
+  console.log(req.body)
+  if (!avatar) {
+    return res.status(400).json({ error: "Avatar is missing" });
   }
 
-  const avatar = await uploadOnCloudinary(avatarLocalPath);
+  try {
+    let avatarUrl = avatar;
 
-  if (!avatar.url) {
-    throw new ApiError(400, "Error while uploading avatar on cloudinary");
+    // Handle base64 image upload to Cloudinary
+    if (avatar.startsWith("data:image")) {
+      const uploadResponse = await uploadOnCloudinary(avatar);
+
+      if (!uploadResponse) {
+        return res.status(400).json({ error: "Failed to upload avatar to Cloudinary" });
+      }
+
+      avatarUrl = uploadResponse.url; // Update with the Cloudinary URL
+    } else if (!avatar.startsWith("http")) {
+      // If the avatar is not a valid URL, return an error
+      return res.status(400).json({ error: "Invalid avatar format" });
+    }
+
+    // Update user's avatar with the Cloudinary URL or provided valid URL
+    const user = await User.findByIdAndUpdate(
+      userId,
+      { $set: { avatar: avatarUrl } },
+      { new: true, runValidators: true }
+    ).select("-password");
+
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    res
+      .status(200)
+      .json(new ApiResponse(200, user, "Avatar updated successfully"));
+  } catch (error) {
+    console.error("Error updating user profile picture:", error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
+export const updateProfile = asyncHandler(async (req, res) => {
+  const { fullName, mobile, gender, password, country, userId } = req.body;
+
+  // Validate if the fields are provided correctly
+  if (!userId) {
+    throw new ApiError(400, "User ID is required for updating the profile");
   }
 
-  const user = await User.findByIdAndUpdate(
-    req.user?._id,
-    { $set: { avatar: avatar.url } },
-    { new: true }
-  ).select("-password");
+  const updateData = {};
 
-  return res
-    .status(200)
-    .json(new ApiResponse(200, user, "avatar updated successfully"));
+  // Conditionally add fields to be updated
+  if (fullName) updateData.fullName = fullName;
+  if (mobile) updateData.mobile = mobile;
+  if (gender) updateData.gender = gender;
+  if (password) {
+    // Assume user model handles password hashing
+    updateData.password = password;
+  }
+  if (country) updateData.country = country;
+
+  try {
+    // Find the user and update the profile
+    const updatedUser = await User.findByIdAndUpdate(userId, updateData, {
+      new: true, // Return the updated document
+      runValidators: true, // Ensure validations are run on updates
+    }).select("-password -refreshToken"); // Exclude sensitive fields
+
+    if (!updatedUser) {
+      throw new ApiError(404, "User not found");
+    }
+
+    // Respond with the updated user details
+    return res
+      .status(200)
+      .json(
+        new ApiResponse(200, "Profile updated successfully", updatedUser)
+      );
+  } catch (error) {
+    console.error("Error updating profile:", error);
+    throw new ApiError(500, "An error occurred while updating the profile");
+  }
 });
+
+export const getUserProfileWithAssociations = async (req, res) => {
+  try {
+    const { id } = req.body;
+
+    // Validate ID
+    if (!id) {
+      return res.status(400).json({ success: false, message: "User ID is required" });
+    }
+
+    // Find the user by ID
+    const user = await User.findById(id)
+      .populate("clubs", "Name clubName location president vicePresident")
+      .populate("chapters", "chapterName location president vicePresident")
+      .select("-password -refreshToken");
+
+    if (!user) {
+      return res.status(404).json({ success: false, message: "User not found" });
+    }
+
+    return res.status(200).json({ success: true, profile: user });
+  } catch (error) {
+    console.error("Error fetching user profile:", error);
+    return res.status(500).json({ success: false, message: "Internal server error" });
+  }
+};
 
 export {
   registerUser,

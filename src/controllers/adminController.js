@@ -81,6 +81,41 @@ export const loginAdmin = async (req, res) => {
   }
 };
 
+export const changeAdminPassword = async (req, res) => {
+  const { username, oldPassword, newPassword } = req.body;
+
+  // Validate input
+  if (!username || !oldPassword || !newPassword) {
+    return res
+      .status(400)
+      .json({ message: "Username, old password, and new password are required" });
+  }
+
+  try {
+    // Find admin by username
+    const admin = await Admin.findOne({ username });
+
+    if (!admin) {
+      return res.status(404).json({ message: "Admin not found" });
+    }
+
+    // Verify the old password
+    const isPasswordValid = await admin.isPasswordCorrect(oldPassword);
+    if (!isPasswordValid) {
+      return res.status(401).json({ message: "Old password is incorrect" });
+    }
+
+    // Update the password
+    admin.password = newPassword; // Assuming password hashing is handled in the model's `save` method
+    await admin.save();
+
+    res.status(200).json({ message: "Password changed successfully" });
+  } catch (error) {
+    console.error("Change password error: ", error);
+    res.status(500).json({ message: "Internal server error" });
+  }
+};
+
 const handleServerError = (res, error, message) => {
   res.status(500).json({ message, error });
 };
@@ -116,6 +151,26 @@ export const getProfile = async (req, res) => {
       accessToken: newAccessToken,
       message: "Profile fetched successfully",
     });
+  } catch (error) {
+    console.error("Profile fetch error: ", error);
+
+    // If token is invalid or expired
+    if (error.name === "TokenExpiredError") {
+      return res
+        .status(401)
+        .json({ message: "Token expired, please log in again" });
+    }
+
+    // Other errors related to token verification
+    return res.status(401).json({ message: "Invalid token" });
+  }
+};
+
+export const ListUsers = async (req, res) => {
+
+  try {
+    // Verify the token
+  
   } catch (error) {
     console.error("Profile fetch error: ", error);
 
@@ -301,3 +356,33 @@ export const deleteAdmin = async (req, res) => {
   }
 };
 
+
+export const toggleVerification = async (req, res) => {
+  const { userId } = req.params;
+
+  try {
+    // Find the user by ID
+    const user = await User.findById(userId);
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    // Toggle the verification status
+    user.verified = !user.verified;
+
+    // Save the updated user
+    await user.save();
+
+    return res.status(200).json({
+      message: "User verification status updated successfully",
+      verified: user.verified,
+    });
+  } catch (error) {
+    console.error("Error toggling verification status:", error);
+    return res.status(500).json({
+      message: "An error occurred while updating verification status",
+      error: error.message,
+    });
+  }
+};

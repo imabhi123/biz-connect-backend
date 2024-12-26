@@ -1,4 +1,4 @@
-import mongoose from 'mongoose';
+import mongoose from "mongoose";
 
 const CommunitySchema = new mongoose.Schema({
     communityName: {
@@ -8,6 +8,15 @@ const CommunitySchema = new mongoose.Schema({
     email: {
         type: String,
         required: true,
+    },
+    members: {
+        type: [mongoose.Schema.Types.ObjectId], // Array of ObjectId
+        ref: 'User' // Reference to the User model
+    }
+    ,
+    status: {
+        type: String,
+        default: "blocked"
     },
     contact: {
         type: String,
@@ -25,17 +34,26 @@ const CommunitySchema = new mongoose.Schema({
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Admin',
     },
-    description:{
-        type:String,
-        required:true
+    description: {
+        type: String,
+        required: true,
     },
-    joiningDate:{
-        type:Date,
-        default:Date.now
+    joiningDate: {
+        type: Date,
+        default: Date.now,
+    },
+    approved: {
+        type: String,
+        enum: ["approved", "pending", "rejected"],
+        default: 'pending'
     },
     image: {
         type: String,
         default: "/uploads/placeholder.png",
+    },
+    user: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User", // Reference to the User model
     },
 }, { timestamps: true });
 

@@ -19,19 +19,23 @@ import admin from "firebase-admin";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Import service account file
-import serviceAccount from "./config/serviceAccountKey.json" assert { type: "json" };
-
-
 // Route imports
-import clubsAndChaptersRoutes from './routes/ClubsAndChaptersRoutes.js';
+import chapterRoutes from './routes/chapterRoutes.js';
 import adminRoutes from './routes/adminRoutes.js';
 import reelRoutes from "./routes/BizReelsRoutes.js";
 import communityRoutes from './routes/CommunityRoutes.js'; // Adjust the path
+import offerRoutes from './routes/OffersRoutes.js'; // Adjust the path
 // import alertRoutes from './routes/alertRoutes.js';
-// import userRoutes from './routes/user-routes.js'
+import userRoutes from './routes/user-routes.js'
+import newsRoutes from './routes/NewsRoutes.js'
+import bannerRoutes from './routes/bannerImageRoutes.js'
+import clubRoutes from './routes/clubRoutes.js';
+import notificationRoutes from './routes/notificationRoutes.js'
+import businessRoutes from './routes/businessRoutes.js'
+import authRoutes from './routes/authroutes.js'
 
-// Initialize app
+
+// Initialize app 
 dotenv.config(); // Load environment variables
 const app = express();
 
@@ -54,35 +58,29 @@ const limiter = rateLimit({
 // gatherMoreDetails('what is quantum physics')
 
 // Middleware
-app.use(express.json()); // For parsing application/json
+
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 app.use(cors());  // Allow only specific domains
 app.use(morgan('dev'));  // Logging middleware
 app.use('/uploads', express.static(path.join(__dirname, '..', 'uploads')));
 
 // API routes
 app.use('/api/v1/admin', adminRoutes);    // Admin management routes
-app.use('/api/v1/clubs-and-chapters', clubsAndChaptersRoutes); 
+app.use('/api/v1/chapters', chapterRoutes);
 app.use("/api/v1/reels", reelRoutes);
 app.use('/api/v1/communities', communityRoutes);
+app.use('/api/v1/offers', offerRoutes);
+app.use('/api/v1/user', userRoutes);
+app.use('/api/v1/news', newsRoutes);
+app.use('/api/v1/business', businessRoutes);
+app.use('/api/v1/auth', authRoutes);
+app.use('/api/v1/clubs', clubRoutes);
+app.use('/api/v1/notifications', notificationRoutes);
+app.use('/api/v1/banner-images', bannerRoutes);
 
 // Custom error handling middleware
 app.use(errorHandler);
-admin.initializeApp({
-  credential: admin.credential.cert(serviceAccount),
-});
-
-// Example function to send OTP
-// async function sendOtp(phoneNumber) {
-//   try {
-//     await admin
-//       .auth()
-//       .createSessionCookie(phoneNumber, { expiresIn: 60 * 5 * 1000 }); // 5 minutes
-//     console.log("OTP sent successfully!");
-//   } catch (error) {
-//     console.error("Error sending OTP:", error.message);
-//   }
-// }
-// sendOtp('6207694967')
 
 // Basic home route
 app.get('/', (req, res) => {
